@@ -13,8 +13,8 @@ X509* root_cert;
 EVP_PKEY* root_key;
 
 void init() {
-    root_cert = load_crt("certificate/rootCa.crt", "Horizon972583048");
-    root_key = load_key("certificate/rootCa.key", "Horizon972583048");
+    root_cert = load_crt("certificate/rootCa.crt", "yourpassword");
+    root_key = load_key("certificate/rootCa.key", "yourpassword");
 }
 
 void worker(boost::asio::io_context &context, const char* name){
