@@ -1,44 +1,22 @@
-#include <thread>
+#include <iostream>
+#include "outheader/ProxyServer.h"
+#include "outheader/gzip.h"
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 
-#include "ca/cert.h"
-#include "utils/gzip.h"
-#include "service/httpdef.h"
-#include "service/ProxyServer.h"
 #define PORT 8999
 
-X509* root_cert;
-EVP_PKEY* root_key;
-
-void init() {
-    root_cert = load_crt("certificate/rootCa.crt", "yourpassword");
-    root_key = load_key("certificate/rootCa.key", "yourpassword");
-}
-
-void worker(boost::asio::io_context &context, const char* name){
-    context.run();
-    while (context.stopped()){
-        context.restart();
-        context.run();
-    }
-}
-
 int main() {
-    OpenSSL_add_all_algorithms();
-    init();
 
     try {
-        boost::asio::io_context clientContext;
-        boost::asio::io_context serverContext;
-
         std::cout << "proxy servere run at " << PORT << std::endl;
-        ProxyServer proxyServer(clientContext, clientContext, PORT, root_cert, root_key);
+        ProxyServer proxyServer(PORT, "certificate/rootCa.crt", "certificate/rootCa.key", "Horizon972583048");
 
         // 添加mock操作，这里是onResponse
         proxyServer.add_mock([](REQ* req){
             if (req->request.target().find("/admin/api/dataintegrate/common/forwardDaasApi") != req->request.target().npos){
+                std::cerr << "forwardDaaApi" << std::endl;
                 std::string requestBody;
                 if (isGzip(req->request)){
                     requestBody = unCompressGzip(req->request.body());
@@ -50,6 +28,7 @@ int main() {
                 request.Parse(requestBody.c_str());
                 rapidjson::Value& col = request["params"]["columnList"][0];
                 if (std::strcmp(col.GetString(), "payOrderTradeAmt") == 0){
+                    std::cerr << "mock payOrderTradeAmt" << std::endl;
                     std::string bodyString;
                     if (isGzip(req->response)){
                         bodyString = unCompressGzip(req->response.body());
@@ -81,8 +60,7 @@ int main() {
             }
         });
 
-        std::thread client([&clientContext](){ worker(clientContext, "client");});
-        client.join();
+        proxyServer.run();
     } catch (std::exception& e){
         std::cerr << "Exception: " << e.what() << std::endl;
     }

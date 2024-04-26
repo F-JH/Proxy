@@ -5,9 +5,11 @@
 #ifndef PROXY_PROXYSERVER_H
 #define PROXY_PROXYSERVER_H
 
+#include <thread>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 
+#include "ca/cert.h"
 #include "mock/mock.h"
 
 using namespace boost::asio;
@@ -15,18 +17,22 @@ using namespace boost::asio::ip;
 
 class ProxyServer {
 public:
-    ProxyServer(boost::asio::io_context &client_context, boost::asio::io_context &server_context, unsigned short port, X509* root_cert, EVP_PKEY* root_key);
+    ProxyServer(unsigned short port, const char* certPath, const char* keyPath, const char* pwd);
+    ~ProxyServer();
 
     void add_mock(MockInterface& mock);
     void add_mock(OnRequest func);
     void add_mock(OnResponse func);
+
+    void run();
 private:
     std::string get_password() const;
     void do_accept();
 
-    tcp::acceptor _acceptor;
-    tcp::socket _socket;
-    io_context* ioContext;
+    tcp::acceptor* _acceptor;
+    tcp::socket* _socket;
+    io_context serverContext;
+    io_context sessionContext;
 
     X509* root_cert_;
     EVP_PKEY* root_key_;

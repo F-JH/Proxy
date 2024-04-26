@@ -9,11 +9,15 @@
 #include <string>
 #include <zlib.h>
 
-#include "mock/mock.h"
+#include "ProxyServer.h"
 
 #define CHUNK 1024
 
-inline static bool isGzip(REQUEST& request){
+inline static void test(){
+    std::cout << "hello world" << std::endl;
+}
+
+inline static bool isGzip(boost::beast::http::request<boost::beast::http::string_body>& request){
     for (auto const& field : request.base()){
         if (field.name_string() == "Content-Encoding" && field.value() == "gzip"){
             return true;
@@ -23,7 +27,7 @@ inline static bool isGzip(REQUEST& request){
     return false;
 }
 
-inline static bool isGzip(RESPONSE& response){
+inline static bool isGzip(boost::beast::http::response<boost::beast::http::string_body>& response){
     for (auto const& field : response.base()){
         if (field.name_string() == "Content-Encoding" && field.value() == "gzip"){
             return true;

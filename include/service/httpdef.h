@@ -17,7 +17,7 @@ typedef struct req_res {
     RESPONSE response;
 } REQ;
 
-typedef std::function<void(REQUEST* req)> OnRequest;
-typedef std::function<void(REQ* req)> OnResponse;
+typedef void (*OnRequest)(REQUEST*);
+typedef void (*OnResponse)(REQ*);
 
 #endif //PROXY_HTTPDEF_H
