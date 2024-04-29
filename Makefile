@@ -16,29 +16,41 @@ OBJ=$(subst src, build, $(SOURCES))
 OBJECTS=$(OBJ:.cpp=.o)
 
 #LIB_OBJ=libProxyServer_.a
-LIB=libProxyServer.a
+LIB_NAME=ProxyServer
 
-all: ProxyServer
+all: libProxyServer
 
-ProxyServer: $(BUILD_DIR) clean $(SOURCES) $(LIB)
+libProxyServer: $(BUILD_DIR) clean $(SOURCES) $(LIB_NAME)
 	mkdir $(BUILD_DIR)/include
 	cp include/outheader/*.h build/include/
+	cp -r $(BOOST_INCLUDE)/boost build/include/
+
+.PHONY: logfile
+logfile:
+	@echo $(SOURCES)
+	@echo $(OBJECTS)
 
 .PHONY: example
-example:
-	$(CC) $(CFLAGS) example/main.cpp $(CINCLUDE) -I $(RAPIDJSON_INCLUDE) -o build/main.o
-	@set static_link :=
-	$(eval static_link += $(foreach lib,$(BOOST_STATIC_LIB),-l$(lib)))
-	$(CC) build/main.o -L $(BOOST_LIB) -L $(BUILD_DIR) -lProxyServer $(static_link) $(LINK_LIBZ) -o build/example_main
+example: $(BUILD_DIR)/lib/lib$(LIB_NAME).dylib
+	mkdir -p build/example
+	$(CC) $(CFLAGS) example/main.cpp $(CINCLUDE) -I $(RAPIDJSON_INCLUDE) -o build/example/main.o
+	$(CC) build/example/main.o -L $(BUILD_DIR)/lib -lProxyServer $(LINK_LIBZ) -o build/example/example_main
+
+$(BUILD_DIR)/lib$(LIB_NAME).dylib: libProxyServer
+$(BUILD_DIR)/lib$(LIB_NAME).a: libProxyServer
 
 $(BUILD_DIR):
 	@if [ ! -d "$(BUILD_DIR)" ]; then mkdir -p $(BUILD_DIR); fi
 
-$(LIB): $(OBJECTS)
+$(LIB_NAME): $(OBJECTS)
+	mkdir $(BUILD_DIR)/lib
 	@set static_link_flag :=
 	$(eval static_link_flag += $(foreach lib, $(OPENSSL_STATIC_LIB), $(OPENSSL_LIB)/lib$(lib).a ))
-	$(LIBTOOL) $(LIBTOOL_FLAG) -o $(BUILD_DIR)/$@ $(OBJECTS) $(static_link_flag)
-#$(eval static_link_flag += $(foreach lib, $(BOOST_STATIC_LIB), $(BOOST_LIB)/lib$(lib).a ))
+	$(eval static_link_flag += $(foreach lib, $(BOOST_STATIC_LIB), $(BOOST_LIB)/lib$(lib).a ))
+	$(LIBTOOL) $(LIBTOOL_FLAG) -o $(BUILD_DIR)/lib/lib$@.a $(OBJECTS) $(static_link_flag)
+	$(CC) -shared $(OBJECTS) $(static_link_flag) -o lib$@.dylib
+	mv lib$@.dylib $(BUILD_DIR)/lib/
+
 $(BUILD_DIR)/%.o: src/%.cpp
 	@if [ ! -d "$(dir $@)" ]; then mkdir -p $(dir $@); fi
 	$(CC) $(CFLAGS) $< $(CINCLUDE) -o $@
