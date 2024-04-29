@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.23)
-project(Proxy)
+project(ProxyServer)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -32,22 +32,22 @@ target_link_libraries(
 )
 
 # main
-add_executable(Proxy example/main.cpp)
+add_executable(Test example/main.cpp)
 target_include_directories(
-        Proxy
+        Test
         PUBLIC
         include
         /usr/local/include
         /Users/xiaoandi/github/rapidjson/include
 )
 target_link_directories(
-        Proxy
+        Test
         PRIVATE
         /usr/local/Cellar/openssl@3/3.2.1/lib
         /usr/local/Cellar/boost/1.84.0_1/lib
 )
 target_link_libraries(
-        Proxy
+        Test
         PUBLIC
         ProxyServer
 )

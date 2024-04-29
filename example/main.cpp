@@ -15,8 +15,7 @@ int main() {
 
         // 添加mock操作，这里是onResponse
         proxyServer.add_mock([](REQ* req){
-            if (req->request.target().find("/admin/api/dataintegrate/common/forwardDaasApi") != req->request.target().npos){
-                std::cerr << "forwardDaaApi" << std::endl;
+            if (req->request.target().find("/admin/forwardDaasApi") != req->request.target().npos){
                 std::string requestBody;
                 if (isGzip(req->request)){
                     requestBody = unCompressGzip(req->request.body());
@@ -30,7 +29,9 @@ int main() {
                 if (std::strcmp(col.GetString(), "payOrderTradeAmt") == 0){
                     std::cerr << "mock payOrderTradeAmt" << std::endl;
                     std::string bodyString;
-                    if (isGzip(req->response)){
+                    bool hasGzip = isGzip(req->response);
+                    if (hasGzip){
+                        // 对body进行gzip解压
                         bodyString = unCompressGzip(req->response.body());
                     }else {
                         bodyString = req->response.body();
@@ -55,7 +56,13 @@ int main() {
                     rapidjson::StringBuffer rapidBuffer;
                     rapidjson::Writer<rapidjson::StringBuffer> writer(rapidBuffer);
                     document.Accept(writer);
-                    req->response.body() = compressGzip(rapidBuffer.GetString());
+
+                    if (hasGzip){
+                        // 将body重新用gzip压缩
+                        req->response.body() = compressGzip(rapidBuffer.GetString());
+                    }else{
+                        req->response.body() = rapidBuffer.GetString();
+                    }
                 }
             }
         });
