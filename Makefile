@@ -22,8 +22,9 @@ all: libProxyServer
 
 libProxyServer: $(BUILD_DIR) clean $(SOURCES) $(LIB_NAME)
 	mkdir $(BUILD_DIR)/include
-	cp include/outheader/*.h build/include/
-	cp -r $(BOOST_INCLUDE)/boost build/include/
+	cp include/gzip.h $(BUILD_DIR)/include/
+	cp include/ProxyServer.h $(BUILD_DIR)/include/
+	cp -r $(BOOST_INCLUDE)/boost $(BUILD_DIR)/include/
 
 .PHONY: logfile
 logfile:
@@ -32,9 +33,9 @@ logfile:
 
 .PHONY: example
 example: $(BUILD_DIR)/lib/lib$(LIB_NAME).dylib
-	mkdir -p build/example
-	$(CC) $(CFLAGS) example/main.cpp $(CINCLUDE) -I $(RAPIDJSON_INCLUDE) -o build/example/main.o
-	$(CC) build/example/main.o -L $(BUILD_DIR)/lib -lProxyServer $(LINK_LIBZ) -o build/example/example_main
+	mkdir -p $(BUILD_DIR)/example
+	$(CC) $(CFLAGS) example/main.cpp $(CINCLUDE) -I $(RAPIDJSON_INCLUDE) -o $(BUILD_DIR)/example/main.o
+	$(CC) $(BUILD_DIR)/example/main.o -L $(BUILD_DIR)/lib -lProxyServer $(LINK_LIBZ) -o build/example/example_main
 
 $(BUILD_DIR)/lib$(LIB_NAME).dylib: libProxyServer
 $(BUILD_DIR)/lib$(LIB_NAME).a: libProxyServer

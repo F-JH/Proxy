@@ -25,7 +25,7 @@ typedef boost::beast::error_code error_code;
 
 class HttpSession : public std::enable_shared_from_this<HttpSession>{
 public:
-    HttpSession(tcp::socket clientSocket, io_context* ioContext, MockManager& mockManager, X509* rootCert, EVP_PKEY* rootKey);
+    HttpSession(tcp::socket clientSocket, io_context* ioContext, MockManager<OnRequest, OnResponse>& mockManager, X509* rootCert, EVP_PKEY* rootKey);
     void start();
     ~HttpSession();
 private:
@@ -52,6 +52,6 @@ private:
     std::string domain;
     std::string port;
 
-    MockManager mockManager_;
+    MockManager<OnRequest, OnResponse> mockManager_;
 };
 #endif //PROXY_HTTPSESSION_H

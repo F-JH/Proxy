@@ -9,7 +9,6 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 
-#include "ca/cert.h"
 #include "mock/mock.h"
 
 using namespace boost::asio;
@@ -34,10 +33,10 @@ private:
     io_context serverContext;
     io_context sessionContext;
 
-    X509* root_cert_;
-    EVP_PKEY* root_key_;
+    void* root_cert_;
+    void* root_key_;
 
-    MockManager mockManager_;
+    MockManager<OnRequest, OnResponse> mockManager_;
 };
 
 #endif //PROXY_PROXYSERVER_H

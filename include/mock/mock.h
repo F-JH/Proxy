@@ -20,21 +20,59 @@ public:
     virtual void onResponse(REQ* req);
 };
 
-
+template<typename onrequest, typename onresponse>
 class MockManager {
     friend class HttpSession;
     friend class HttpsSession;
 public:
-    void addMock(MockInterface mock);
-    void onRequest(OnRequest func);
-    void onResponse(OnResponse func);
+    void addMock(MockInterface mock){
+        mocks_.push_back(mock);
+    }
+    void onRequest(onrequest func){
+        onRequestFunc_.push_back(func);
+    }
+    void onResponse(onresponse func){
+        onResponseFunc_.push_back(func);
+    }
 private:
-    void mockRequest(REQ* req);
-    void mockResponse(REQ* req);
+    void mockRequest(REQ* req){
+        for (auto mock : mocks_){
+            try{
+                mock.onRequest(req);
+            }catch (std::exception& e){
+                std::cerr << e.what() << std::endl;
+            }
+        }
+
+        for (auto func : onRequestFunc_){
+            try{
+                func(&(req->request));
+            }catch (std::exception& e){
+                std::cerr << e.what() << std::endl;
+            }
+        }
+    }
+    void mockResponse(REQ* req){
+        for (auto mock : mocks_){
+            try{
+                mock.onResponse(req);
+            }catch (std::exception& e){
+                std::cerr << e.what() << std::endl;
+            }
+        }
+
+        for (auto func : onResponseFunc_){
+            try{
+                func(req);
+            }catch (std::exception& e){
+                std::cerr << e.what() << std::endl;
+            }
+        }
+    }
 
     std::vector<const MockInterface> mocks_;
-    std::vector<const OnRequest> onRequestFunc_;
-    std::vector<const OnResponse> onResponseFunc_;
+    std::vector<onrequest> onRequestFunc_;
+    std::vector<onresponse> onResponseFunc_;
 };
 
 #endif //PROXY_MOCK_H

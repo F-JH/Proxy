@@ -15,9 +15,12 @@ typedef boost::beast::http::response<boost::beast::http::string_body> RESPONSE;
 typedef struct req_res {
     REQUEST request;
     RESPONSE response;
+    boost::beast::string_view url;
 } REQ;
 
-typedef void (*OnRequest)(REQUEST*);
-typedef void (*OnResponse)(REQ*);
+//typedef void (*OnRequest)(REQUEST*);
+//typedef void (*OnResponse)(REQ*);
+typedef std::function<void(REQUEST*)> OnRequest;
+typedef std::function<void(REQ*)> OnResponse;
 
 #endif //PROXY_HTTPDEF_H

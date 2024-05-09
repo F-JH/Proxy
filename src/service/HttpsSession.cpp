@@ -3,7 +3,7 @@
 //
 #include "service/HttpsSession.h"
 
-HttpsSession::HttpsSession(boost::beast::ssl_stream<boost::beast::tcp_stream> clientSocket, boost::asio::io_context &ioContext, boost::asio::ssl::context context, MockManager& mockManager, std::string domain, std::string port)
+HttpsSession::HttpsSession(boost::beast::ssl_stream<boost::beast::tcp_stream> clientSocket, boost::asio::io_context &ioContext, boost::asio::ssl::context context, MockManager<OnRequest, OnResponse>& mockManager, std::string domain, std::string port)
         : clientSocket_(std::move(clientSocket)), serverSocket_(ioContext, context), resolver(ioContext), mockManager_(mockManager) {
 
     serverReadCnt = 0;
@@ -72,6 +72,7 @@ void HttpsSession::clientRead() {
         }else {
             std::string method = to_string(req->request.method());
             url = handleUrl(domain_, port_, (std::string)req->request.target());
+            req->url = url;
             log(method.c_str(), url.c_str());
             serverWrite(req);
         }

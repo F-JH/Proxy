@@ -1,68 +1,115 @@
+#include <fstream>
 #include <iostream>
-#include "outheader/ProxyServer.h"
-#include "outheader/gzip.h"
+#include "ProxyServer.h"
+#include "gzip.h"
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 
 #define PORT 8999
 
+std::string mockJson = "";
+
+void setContentLength(RESPONSE* response, size_t length){
+    std::string len = std::to_string(length);
+    response->set(boost::beast::http::field::content_length, len);
+}
+
+void updateJson(){
+    while (true){
+        std::ifstream mockFile("example/mock.json");
+        if (!mockFile.is_open()){
+            std::cerr << "Failed to open the mock.json" << std::endl;
+            return;
+        }
+        std::string line;
+        std::string jsonTemp;
+        while (std::getline(mockFile, line)){
+            jsonTemp += line + "\n";
+        }
+        mockFile.close();
+        mockJson = jsonTemp;
+        sleep(5);
+    }
+}
+
 int main() {
 
     try {
         std::cout << "proxy servere run at " << PORT << std::endl;
-        ProxyServer proxyServer(PORT, "certificate/rootCa.crt", "certificate/rootCa.key", "Horizon972583048");
-
         // 添加mock操作，这里是onResponse
-        proxyServer.add_mock([](REQ* req){
-            if (req->request.target().find("/admin/forwardDaasApi") != req->request.target().npos){
-                std::string requestBody;
-                if (isGzip(req->request)){
-                    requestBody = unCompressGzip(req->request.body());
-                }else {
-                    requestBody = req->request.body();
-                }
 
-                rapidjson::Document request;
-                request.Parse(requestBody.c_str());
-                rapidjson::Value& col = request["params"]["columnList"][0];
-                if (std::strcmp(col.GetString(), "payOrderTradeAmt") == 0){
-                    std::cerr << "mock payOrderTradeAmt" << std::endl;
-                    std::string bodyString;
-                    bool hasGzip = isGzip(req->response);
-                    if (hasGzip){
-                        // 对body进行gzip解压
-                        bodyString = unCompressGzip(req->response.body());
-                    }else {
-                        bodyString = req->response.body();
-                    }
-                    rapidjson::Document document;
-                    document.Parse(bodyString.c_str());
-                    rapidjson::Value& data = document["data"]["data"];
+        std::thread update(updateJson);
 
-                    int n = 100;
-                    auto allocator = document.GetAllocator();
-                    for (auto it = data.Begin(); it != data.End(); it++){
-                        if (it->IsObject()){
-                            rapidjson::Value& obj = *it;
-                            obj["payOrderTradeAmt"] = n;
-                            std::string name = "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong" + std::to_string(n);
-                            obj["sourceReferrerName"].SetString(name.c_str(), name.length(), allocator);
+        OnResponse fileMock = [&](REQ* req){
+            rapidjson::Document mockData;
+            mockData.Parse(mockJson.c_str());
+            if (!mockData.IsObject()){
+                std::cerr << "mockData is not a json object !" << std::endl;
+                return;
+            }
 
-                            n += 100;
-                        }
-                    }
-
+            for (auto it = mockData.MemberBegin(); it != mockData.MemberEnd(); it++){
+                if (req->url.contains(it->name.GetString())){
                     rapidjson::StringBuffer rapidBuffer;
                     rapidjson::Writer<rapidjson::StringBuffer> writer(rapidBuffer);
-                    document.Accept(writer);
+                    it->value.Accept(writer);
 
-                    if (hasGzip){
-                        // 将body重新用gzip压缩
+                    setContentLength(&req->response, strlen(rapidBuffer.GetString()));
+
+                    if (isGzip(req->response)){
                         req->response.body() = compressGzip(rapidBuffer.GetString());
-                    }else{
+                    }else {
                         req->response.body() = rapidBuffer.GetString();
                     }
+                }
+            }
+        };
+//                    auto allocator = document.GetAllocator();
+//                    for (auto it = data.Begin(); it != data.End(); it++){
+//                        if (it->IsObject()){
+//                            rapidjson::Value& obj = *it;
+//                            obj["payOrderTradeAmt"] = n;
+//                            std::string name = "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong" + std::to_string(n);
+//                            obj["sourceReferrerName"].SetString(name.c_str(), name.length(), allocator);
+//
+//                            n += 100;
+//                        }
+//                    }
+
+
+        ProxyServer proxyServer(PORT, "certificate/rootCa.crt", "certificate/rootCa.key", "Horizon972583048");
+
+        proxyServer.add_mock(fileMock);
+        proxyServer.add_mock([&](REQ* req){
+            if (req->url.contains("sgfunny.preview.myshopline.com/admin/api/dataintegrate/common/forwardDaasApi")){
+                std::string requestData;
+                if (isGzip(req->request)){
+                    requestData = unCompressGzip(req->request.body());
+                }else {
+                    requestData = req->request.body();
+                }
+
+                rapidjson::Document data;
+                data.Parse(requestData.c_str());
+
+                if (data["apiSeqList"][0] == "SL_SellerAdmin_realtimeanAlytics_region_10min_fmit"){
+                    rapidjson::Document mockData;
+                    mockData.Parse(mockJson.c_str());
+                    if (!mockData.IsObject()){
+                        std::cerr << "mockData is not a json object !" << std::endl;
+                        return;
+                    }
+                    rapidjson::StringBuffer rapidBuffer;
+                    rapidjson::Writer<rapidjson::StringBuffer> writer(rapidBuffer);
+                    mockData["mymock"].Accept(writer);
+
+                    if (isGzip(req->response)){
+                        req->response.body() = compressGzip(rapidBuffer.GetString());
+                    }else {
+                        req->response.body() = rapidBuffer.GetString();
+                    }
+                    setContentLength(&req->response, strlen(rapidBuffer.GetString()));
                 }
             }
         });

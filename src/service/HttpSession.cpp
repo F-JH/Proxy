@@ -30,7 +30,7 @@ std::string HttpSession::getPassword() const {
     return "Horizon972583048";
 }
 
-HttpSession::HttpSession(tcp::socket clientSocket, io_context* ioContext, MockManager& mockManager, X509* rootCert, EVP_PKEY* rootKey) : clientSocket_(std::move(clientSocket)), mockManager_(mockManager), rootCert_(rootCert), rootKey_(rootKey){
+HttpSession::HttpSession(tcp::socket clientSocket, io_context* ioContext, MockManager<OnRequest, OnResponse>& mockManager, X509* rootCert, EVP_PKEY* rootKey) : clientSocket_(std::move(clientSocket)), mockManager_(mockManager), rootCert_(rootCert), rootKey_(rootKey){
     serverSocket_ = nullptr;
     ioContext_ = ioContext;
     isFirstWriteServer = true;

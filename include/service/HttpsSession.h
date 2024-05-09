@@ -27,7 +27,7 @@ typedef boost::system::error_code error_code;
 
 class HttpsSession : public std::enable_shared_from_this<HttpsSession> {
 public:
-    HttpsSession(boost::beast::ssl_stream<boost::beast::tcp_stream> clientSocket, io_context& ioContext, boost::asio::ssl::context context, MockManager& mockManager, std::string domain, std::string port);
+    HttpsSession(boost::beast::ssl_stream<boost::beast::tcp_stream> clientSocket, io_context& ioContext, boost::asio::ssl::context context, MockManager<OnRequest, OnResponse>& mockManager, std::string domain, std::string port);
     ~HttpsSession();
     void connect();
 private:
@@ -56,7 +56,7 @@ private:
     bool isFirstWriteServer;
     bool isServerStop;
 
-    MockManager mockManager_;
+    MockManager<OnRequest, OnResponse> mockManager_;
     std::string url;
 };
 
