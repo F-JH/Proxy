@@ -39,32 +39,7 @@ int main() {
         std::cout << "proxy servere run at " << PORT << std::endl;
         // 添加mock操作，这里是onResponse
 
-        std::thread update(updateJson);
-
-        OnResponse fileMock = [&](REQ* req){
-            rapidjson::Document mockData;
-            mockData.Parse(mockJson.c_str());
-            if (!mockData.IsObject()){
-                std::cerr << "mockData is not a json object !" << std::endl;
-                return;
-            }
-
-            for (auto it = mockData.MemberBegin(); it != mockData.MemberEnd(); it++){
-                if (req->url.contains(it->name.GetString())){
-                    rapidjson::StringBuffer rapidBuffer;
-                    rapidjson::Writer<rapidjson::StringBuffer> writer(rapidBuffer);
-                    it->value.Accept(writer);
-
-                    setContentLength(&req->response, strlen(rapidBuffer.GetString()));
-
-                    if (isGzip(req->response)){
-                        req->response.body() = compressGzip(rapidBuffer.GetString());
-                    }else {
-                        req->response.body() = rapidBuffer.GetString();
-                    }
-                }
-            }
-        };
+//        std::thread update(updateJson);
 //                    auto allocator = document.GetAllocator();
 //                    for (auto it = data.Begin(); it != data.End(); it++){
 //                        if (it->IsObject()){
@@ -80,39 +55,6 @@ int main() {
 
         ProxyServer proxyServer(PORT, "certificate/rootCa.crt", "certificate/rootCa.key", "Horizon972583048");
 
-        proxyServer.add_mock(fileMock);
-        proxyServer.add_mock([&](REQ* req){
-            if (req->url.contains("sgfunny.preview.myshopline.com/admin/api/dataintegrate/common/forwardDaasApi")){
-                std::string requestData;
-                if (isGzip(req->request)){
-                    requestData = unCompressGzip(req->request.body());
-                }else {
-                    requestData = req->request.body();
-                }
-
-                rapidjson::Document data;
-                data.Parse(requestData.c_str());
-
-                if (data["apiSeqList"][0] == "SL_SellerAdmin_realtimeanAlytics_region_10min_fmit"){
-                    rapidjson::Document mockData;
-                    mockData.Parse(mockJson.c_str());
-                    if (!mockData.IsObject()){
-                        std::cerr << "mockData is not a json object !" << std::endl;
-                        return;
-                    }
-                    rapidjson::StringBuffer rapidBuffer;
-                    rapidjson::Writer<rapidjson::StringBuffer> writer(rapidBuffer);
-                    mockData["mymock"].Accept(writer);
-
-                    if (isGzip(req->response)){
-                        req->response.body() = compressGzip(rapidBuffer.GetString());
-                    }else {
-                        req->response.body() = rapidBuffer.GetString();
-                    }
-                    setContentLength(&req->response, strlen(rapidBuffer.GetString()));
-                }
-            }
-        });
 
         proxyServer.run();
     } catch (std::exception& e){
