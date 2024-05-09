@@ -37,24 +37,7 @@ int main() {
 
     try {
         std::cout << "proxy servere run at " << PORT << std::endl;
-        // 添加mock操作，这里是onResponse
-
-//        std::thread update(updateJson);
-//                    auto allocator = document.GetAllocator();
-//                    for (auto it = data.Begin(); it != data.End(); it++){
-//                        if (it->IsObject()){
-//                            rapidjson::Value& obj = *it;
-//                            obj["payOrderTradeAmt"] = n;
-//                            std::string name = "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong" + std::to_string(n);
-//                            obj["sourceReferrerName"].SetString(name.c_str(), name.length(), allocator);
-//
-//                            n += 100;
-//                        }
-//                    }
-
-
         ProxyServer proxyServer(PORT, "certificate/rootCa.crt", "certificate/rootCa.key", "Horizon972583048");
-
 
         proxyServer.run();
     } catch (std::exception& e){
