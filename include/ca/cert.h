@@ -31,5 +31,8 @@ std::pair<std::vector<unsigned char>, std::vector<unsigned char>> create_fake_ce
 
 std::string get_domain_certificate_file(X509* root_cert, EVP_PKEY* root_key, const std::string& domain);
 
+// 生成根证书
+int export_root_certificate(char* password);
+
 #endif //CERT_H
 

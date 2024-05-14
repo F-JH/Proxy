@@ -39,4 +39,6 @@ private:
     MockManager<OnRequest, OnResponse> mockManager_;
 };
 
+extern int export_root_certificate(char* password);
+
 #endif //PROXY_PROXYSERVER_H

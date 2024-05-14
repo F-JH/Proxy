@@ -2,7 +2,6 @@
 // Created by Xiaoandi Fu on 2024/3/27.
 //
 #include "ca/cert.h"
-#include <sys/stat.h>
 #include <openssl/err.h>
 
 #define MAX_LEGTH 4096
@@ -81,7 +80,6 @@ X509* generate_cert_template(std::string domain) {
 }
 
 std::string get_domain_certificate_file(X509* root_cert, EVP_PKEY* root_key, const std::string& domain){
-    std::string certificate_file = "certificate/sub_certificate/" + domain + ".pem";
     std::string subject_alt_name = "DNS:" + domain;
     std::string cert_data;
     auto item = pem_certs.find(domain);
@@ -145,7 +143,6 @@ std::string get_domain_certificate_file(X509* root_cert, EVP_PKEY* root_key, con
     EVP_PKEY_free(pkey);
     BIO_free_all(bio);
 
-//    return certificate_file;
     return cert_data;
 
 err:
@@ -153,4 +150,133 @@ err:
     if (pkey)  EVP_PKEY_free(pkey);
     if (bio) BIO_free_all(bio);
     return "";
+}
+
+int export_root_certificate(char* password){
+    OpenSSL_add_all_algorithms();
+
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+    if (!ctx){
+        std::cerr << "Error to createing EVP_PKEY_CTX" << std::endl;
+        return 1;
+    }
+
+    // 初始化密钥生成参数
+    if (EVP_PKEY_keygen_init(ctx) <= 0){
+        std::cerr << "Error initializing key generation" << std::endl;
+        EVP_PKEY_CTX_free(ctx);
+        return 1;
+    }
+    // 设置密钥长度
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 4096) <= 0) {
+        std::cerr << "Error setting key length" << std::endl;
+        EVP_PKEY_CTX_free(ctx);
+        return 1;
+    }
+
+    // 生成密钥对
+    EVP_PKEY *pkey = nullptr;
+    if (EVP_PKEY_keygen(ctx, &pkey) <= 0) {
+        std::cerr << "Error generating key pair" << std::endl;
+        EVP_PKEY_CTX_free(ctx);
+        return 1;
+    }
+
+
+    // 创建 X509 证书
+    X509 *x509 = X509_new();
+    if (!x509) {
+        std::cerr << "Error creating X509 object" << std::endl;
+        EVP_PKEY_free(pkey);
+        EVP_PKEY_CTX_free(ctx);
+        return 1;
+    }
+
+    // 设置证书版本
+    X509_set_version(x509, 1);
+
+    // 证书序列号
+    BIGNUM* serial_number = BN_new();
+    BN_rand(serial_number, 64, -1, 0);
+    ASN1_INTEGER* serial_asn1 = BN_to_ASN1_INTEGER(serial_number, NULL);
+
+    // 设置证书序列号
+    X509_set_serialNumber(x509, serial_asn1);
+    ASN1_INTEGER_free(serial_asn1);
+
+    // 设置证书签发者信息
+    X509_NAME *issuer_name = X509_NAME_new();
+    X509_NAME_add_entry_by_txt(issuer_name, "CN", MBSTRING_ASC, (unsigned char*)"ProxyServer CA", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "C", MBSTRING_ASC, (unsigned char*)"CN", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "ST", MBSTRING_ASC, (unsigned char*)"Guangdong", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "L", MBSTRING_ASC, (unsigned char*)"Guangzhou", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "O", MBSTRING_ASC, (unsigned char*)"HSF", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "OU", MBSTRING_ASC, (unsigned char*)"HSF Inc.", -1, -1, 0);
+    X509_set_issuer_name(x509, issuer_name);
+    X509_NAME_free(issuer_name);
+
+    // 设置主题名称
+    X509_NAME *subject_name = X509_NAME_new();
+    X509_NAME_add_entry_by_txt(issuer_name, "CN", MBSTRING_ASC, (unsigned char*)"ProxyServer CA", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "C", MBSTRING_ASC, (unsigned char*)"CN", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "ST", MBSTRING_ASC, (unsigned char*)"Guangdong", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "L", MBSTRING_ASC, (unsigned char*)"Guangzhou", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "O", MBSTRING_ASC, (unsigned char*)"HSF", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(issuer_name, "OU", MBSTRING_ASC, (unsigned char*)"HSF Inc.", -1, -1, 0);
+    X509_set_subject_name(x509, subject_name);
+    X509_NAME_free(subject_name);
+
+    // 设置证书有效期
+    X509_gmtime_adj(X509_get_notBefore(x509), 0);
+    X509_gmtime_adj(X509_get_notAfter(x509), 31536000L); // 1 year validity
+
+    // 设置证书的公钥
+    if (!X509_set_pubkey(x509, pkey)) {
+        std::cerr << "Error setting public key" << std::endl;
+        X509_free(x509);
+        EVP_PKEY_free(pkey);
+        EVP_PKEY_CTX_free(ctx);
+        return 1;
+    }
+
+    // 将证书自签名
+    if (!X509_sign(x509, pkey, EVP_sha256())) {
+        fprintf(stderr, "Error signing certificate\n");
+        X509_free(x509);
+        EVP_PKEY_free(pkey);
+        EVP_PKEY_CTX_free(ctx);
+        return 1;
+    }
+
+    // 将证书写入文件
+    BIO *bio_out = BIO_new_file("rootCa.crt", "w");
+    if (!PEM_write_bio_X509(bio_out, x509)) {
+        fprintf(stderr, "Error writing certificate to file\n");
+        X509_free(x509);
+        EVP_PKEY_free(pkey);
+        EVP_PKEY_CTX_free(ctx);
+        BIO_free_all(bio_out);
+        return 1;
+    }
+    BIO *bio_pkey = BIO_new_file("rootCa.key", "w");
+    if (!PEM_write_bio_PrivateKey(bio_pkey, pkey, nullptr, nullptr, 0, nullptr, nullptr)){
+        fprintf(stderr, "Error writing privateKey to file\n");
+        X509_free(x509);
+        EVP_PKEY_free(pkey);
+        EVP_PKEY_CTX_free(ctx);
+        BIO_free_all(bio_out);
+        return 1;
+    }
+
+    // 释放资源
+    X509_free(x509);
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_CTX_free(ctx);
+    BIO_free_all(bio_out);
+    BIO_free_all(bio_pkey);
+
+    // 清理 OpenSSL 库
+    EVP_cleanup();
+    CRYPTO_cleanup_all_ex_data();
+    return 0;
 }
