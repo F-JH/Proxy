@@ -18,8 +18,6 @@ typedef struct req_res {
     boost::beast::string_view url;
 } REQ;
 
-//typedef void (*OnRequest)(REQUEST*);
-//typedef void (*OnResponse)(REQ*);
 typedef std::function<void(REQUEST*)> OnRequest;
 typedef std::function<void(REQ*)> OnResponse;
 

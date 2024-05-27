@@ -21,9 +21,13 @@ LIB_NAME=ProxyServer
 all: libProxyServer
 
 libProxyServer: $(BUILD_DIR) clean $(SOURCES) $(LIB_NAME)
-	mkdir $(BUILD_DIR)/include
+	mkdir -p $(BUILD_DIR)/include
+	mkdir -p $(BUILD_DIR)/include/mock
+	mkdir -p $(BUILD_DIR)/include/service
 	cp include/gzip.h $(BUILD_DIR)/include/
 	cp include/ProxyServer.h $(BUILD_DIR)/include/
+	cp include/mock/mock.h $(BUILD_DIR)/include/mock/
+	cp include/service/httpdef.h $(BUILD_DIR)/include/service
 	cp -r $(BOOST_INCLUDE)/boost $(BUILD_DIR)/include/
 
 .PHONY: logfile
