@@ -19,9 +19,12 @@ typedef struct response_ {
 } RES;
 
 typedef struct request_ {
-    REQUEST request;
-    boost::beast::string_view domain;
-    std::string port;
+    REQUEST& request;
+    std::string& domain;
+    std::string& port;
+
+    request_(REQUEST& req, std::string& _domain, std::string& _port)
+        : request(req), domain(_domain), port(_port) {}
 } REQ;
 
 typedef std::function<void(REQ*)> OnRequest;

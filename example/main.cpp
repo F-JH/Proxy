@@ -4,9 +4,7 @@
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 
-//#include "../example/mock_function.h"
-#include "ProxyServer.h"
-#include "gzip.h"
+#include "../example/mock_function.h"
 
 
 #define PORT 8999
@@ -16,6 +14,24 @@ std::string mockJson = "";
 void setContentLength(RESPONSE* response, size_t length){
     std::string len = std::to_string(length);
     response->set(boost::beast::http::field::content_length, len);
+}
+
+void updateJson(){
+    while (true){
+        std::ifstream mockFile("example/mock.json");
+        if (!mockFile.is_open()){
+            std::cerr << "Failed to open the mock.json" << std::endl;
+            return;
+        }
+        std::string line;
+        std::string jsonTemp;
+        while (std::getline(mockFile, line)){
+            jsonTemp += line + "\n";
+        }
+        mockFile.close();
+        mockJson = jsonTemp;
+        sleep(5);
+    }
 }
 
 inline bool exists_file(const std::string& name){
@@ -70,7 +86,7 @@ int main(int argc, char* argv[]) {
 
         // mock请求数据,重定向域名
         proxyServer.add_mock([&](REQ* req){
-            if (req->domain.contains("example-test.com")){
+            if (req->domain.find("example-test.com") != req->domain.npos){
                 req->domain = "example.com";
             }
         });

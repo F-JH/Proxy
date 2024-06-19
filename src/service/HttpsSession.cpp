@@ -20,10 +20,7 @@ HttpsSession::~HttpsSession(){
 }
 
 void HttpsSession::connect(RES* res) {
-    REQ req {res->request, domain_, port_};
-    mockManager_.mockRequest(&req);
-
-    auto endpoints = resolver.resolve(req.domain, req.port); // 这里是同步获取dns，考虑异步
+    auto endpoints = resolver.resolve(domain_, port_); // 这里是同步获取dns，考虑异步
     auto self(shared_from_this());
     boost::beast::get_lowest_layer(serverSocket_).async_connect(endpoints, [this, self, res](const error_code& error, const tcp::endpoint& ep){
         if (error){
@@ -75,14 +72,19 @@ void HttpsSession::clientRead() {
             }else {
                 stopServer();
             }
-        }else if (!isConnect){
-            connect(res);
         }else {
-            std::string method = to_string(res->request.method());
-            url = handleUrl(domain_, port_, (std::string)res->request.target());
-            res->url = url;
-            log(method.c_str(), url.c_str());
-            serverWrite(res);
+            REQ req (res->request, domain_, port_);
+            mockManager_.mockRequest(&req);
+
+            if (!isConnect){
+                connect(res);
+            }else {
+                std::string method = to_string(res->request.method());
+                url = handleUrl(domain_, port_, (std::string)res->request.target());
+                res->url = url;
+                log(method.c_str(), url.c_str());
+                serverWrite(res);
+            }
         }
     });
 }
