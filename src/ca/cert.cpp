@@ -280,3 +280,20 @@ int export_root_certificate(char* password){
     CRYPTO_cleanup_all_ex_data();
     return 0;
 }
+
+std::string X509_to_string(X509* cert){
+    BIO* bio = BIO_new(BIO_s_mem());
+    if (!bio){
+        return "Failed to create BIO";
+    }
+    if (PEM_write_bio_X509(bio, cert) != 1){
+        return "Failed to write X509 to BIO";
+    }
+
+    BUF_MEM* mem = nullptr;
+    BIO_get_mem_ptr(bio, &mem);
+    if (!mem){
+        return "Failed to get BIO memory pointer";
+    }
+    return {mem->data, mem->length};
+}

@@ -84,6 +84,16 @@ void HttpSession::clientRead() {
                     port = urlDecode.port;
                     log(((std::string)to_string(res->request.method())).c_str(), ((std::string) res->request.target()).c_str());
 
+                    // 对外提供根证书以供下载安装
+                    if (domain == "hsf.sl"){
+                        res->response.set(http::field::accept_ranges, "bytes");
+                        res->response.set(http::field::content_type, "application/x-x509-ca-cert");
+                        res->response.body() = X509_to_string(rootCert_);
+
+                        clientWrite(res);
+                        return;
+                    }
+
                     // mock
                     REQ req (res->request, domain, port);
                     mockManager_.mockRequest(&req);

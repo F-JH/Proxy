@@ -34,5 +34,7 @@ std::string get_domain_certificate_file(X509* root_cert, EVP_PKEY* root_key, con
 // 生成根证书
 int export_root_certificate(char* password);
 
+std::string X509_to_string(X509* cert);
+
 #endif //CERT_H
 
