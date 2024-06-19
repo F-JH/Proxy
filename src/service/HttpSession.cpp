@@ -47,7 +47,6 @@ void HttpSession::start() {
 
 void HttpSession::clientRead() {
     auto self(shared_from_this());
-//    REQUEST* request = new REQUEST({});
     RES* res = new RES;
     res->request = {};
     res->response = {};
@@ -84,10 +83,14 @@ void HttpSession::clientRead() {
                     domain = urlDecode.domain;
                     port = urlDecode.port;
                     log(((std::string)to_string(res->request.method())).c_str(), ((std::string) res->request.target()).c_str());
+
+                    // mock
+                    REQ req (res->request, domain, port);
+                    mockManager_.mockRequest(&req);
+
                     tcp::resolver resolver(*ioContext_);
                     try{
                         tcp::resolver::results_type endpoints = resolver.resolve(domain, port);
-//                        serverSocket_ = new tcp::socket(*ioContext_);
                         serverSocket_ = new boost::beast::tcp_stream(*ioContext_);
                         auto self(shared_from_this());
                         serverSocket_->async_connect(endpoints->endpoint(), [this, self, res](const error_code& error){
@@ -132,8 +135,7 @@ void HttpSession::asioWrite(std::string res) {
 
 void HttpSession::clientWrite(RES* res) {
     // 写入客户端之前的mock操作
-//    mockManager_.mockResponse(response);
-
+    mockManager_.mockResponse(res);
     auto self(shared_from_this());
     boost::beast::http::async_write(clientSocket_, res->response, [this, self, res](const error_code& error, size_t length){
         delete res;
@@ -176,9 +178,6 @@ void HttpSession::serverRead(RES* res) {
 }
 
 void HttpSession::serverWrite(RES* res) {
-    // 写入服务端之前的mock操作
-//    mockManager_.mockRequest(request);
-
     auto self(shared_from_this());
     boost::beast::http::async_write(*serverSocket_, res->request, [this, self, res](const error_code& error, size_t length){
         if (!error){
