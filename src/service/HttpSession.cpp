@@ -48,12 +48,12 @@ void HttpSession::start() {
 void HttpSession::clientRead() {
     auto self(shared_from_this());
 //    REQUEST* request = new REQUEST({});
-    REQ* req = new REQ;
-    req->request = {};
-    req->response = {};
-    boost::beast::http::async_read(clientSocket_, clientFlatBuffer_, req->request, [this, self, req](const error_code& error, size_t length){
+    RES* res = new RES;
+    res->request = {};
+    res->response = {};
+    boost::beast::http::async_read(clientSocket_, clientFlatBuffer_, res->request, [this, self, res](const error_code& error, size_t length){
         if (error){
-            delete req;
+            delete res;
             if (error == boost::asio::error::operation_aborted
                 || error == boost::asio::error::interrupted
                 || error == boost::asio::error::try_again
@@ -65,9 +65,9 @@ void HttpSession::clientRead() {
         }else {
             if (serverSocket_ == nullptr){
                 // 连接服务端，检查是否是https
-                if (req->request.method() == boost::beast::http::verb::connect){
+                if (res->request.method() == boost::beast::http::verb::connect){
                     std::string connctResponse = "HTTP/1.1 200 Connection established\r\n\r\n";
-                    std::string target = req->request.target();
+                    std::string target = res->request.target();
                     size_t pos = target.find(':');
                     if (pos != target.npos){
                         domain = target.substr(0, pos);
@@ -77,34 +77,34 @@ void HttpSession::clientRead() {
                         port = "443";
                     }
                     asioWrite(connctResponse);
-                    delete req;
+                    delete res;
                 }else {
                     URL urlDecode;
-                    handleUrl(req->request.target(), &urlDecode);
+                    handleUrl(res->request.target(), &urlDecode);
                     domain = urlDecode.domain;
                     port = urlDecode.port;
-                    log(((std::string)to_string(req->request.method())).c_str(), ((std::string) req->request.target()).c_str());
+                    log(((std::string)to_string(res->request.method())).c_str(), ((std::string) res->request.target()).c_str());
                     tcp::resolver resolver(*ioContext_);
                     try{
                         tcp::resolver::results_type endpoints = resolver.resolve(domain, port);
 //                        serverSocket_ = new tcp::socket(*ioContext_);
                         serverSocket_ = new boost::beast::tcp_stream(*ioContext_);
                         auto self(shared_from_this());
-                        serverSocket_->async_connect(endpoints->endpoint(), [this, self, req](const error_code& error){
+                        serverSocket_->async_connect(endpoints->endpoint(), [this, self, res](const error_code& error){
                             if (error){
                                 stopClient();
                             }else {
-                                serverWrite(req);
+                                serverWrite(res);
                             }
                         });
                     }catch (std::exception& e){
-                        delete req;
+                        delete res;
                         std::cerr << e.what() << std::endl;
                     }
                 }
                 return;
             }
-            serverWrite(req);
+            serverWrite(res);
         }
     });
 }
@@ -125,67 +125,67 @@ void HttpSession::asioWrite(std::string res) {
             std::string cert = get_domain_certificate_file(rootCert_, rootKey_, domain);
             https_context.use_certificate_chain(buffer(cert));
             https_context.use_private_key(buffer(cert), boost::asio::ssl::context::pem);
-            std::make_shared<HttpsSession>(std::move(boost::beast::ssl_stream<boost::beast::tcp_stream>(std::move(clientSocket_), https_context)), *ioContext_, std::move(https_context), mockManager_, domain, port)->connect();
+            std::make_shared<HttpsSession>(std::move(boost::beast::ssl_stream<boost::beast::tcp_stream>(std::move(clientSocket_), https_context)), *ioContext_, std::move(https_context), mockManager_, domain, port)->handshakeWithClient();
         }
     });
 }
 
-void HttpSession::clientWrite(REQ* req) {
+void HttpSession::clientWrite(RES* res) {
     // 写入客户端之前的mock操作
 //    mockManager_.mockResponse(response);
 
     auto self(shared_from_this());
-    boost::beast::http::async_write(clientSocket_, req->response, [this, self, req](const error_code& error, size_t length){
-        delete req;
+    boost::beast::http::async_write(clientSocket_, res->response, [this, self, res](const error_code& error, size_t length){
+        delete res;
         if (!error && serverReadCnt == 1 && isServerStop){
             stopClient();
         }
     });
 }
 
-void HttpSession::serverRead(REQ* req) {
+void HttpSession::serverRead(RES* res) {
     serverReadCnt++;
     auto self(shared_from_this());
     serverFlatBuffer_.clear();
-    boost::beast::http::async_read(*serverSocket_, serverFlatBuffer_,  req->response, [this, self, req](const error_code& error, size_t length){
+    boost::beast::http::async_read(*serverSocket_, serverFlatBuffer_,  res->response, [this, self, res](const error_code& error, size_t length){
         if (error){
             if (error == boost::asio::error::operation_aborted
                 || error == boost::asio::error::interrupted
                 || error == boost::asio::error::try_again
                 || error == boost::asio::error::would_block) {
-                req->response.clear();
-                req->response = {};
-                serverRead(req);
+                res->response.clear();
+                res->response = {};
+                serverRead(res);
             }else {
                 isServerStop = true;
                 if (length > 0){
-                    clientWrite(req);
+                    clientWrite(res);
                 }else if (serverReadCnt == 1){
                     // 无其他在处理中的clientWrite，直接关闭
-                    delete req;
+                    delete res;
                     stopClient();
                 }else {
-                    delete req;
+                    delete res;
                     serverReadCnt--;
                 }
             }
         }else {
-            clientWrite(req);
+            clientWrite(res);
         }
     });
 }
 
-void HttpSession::serverWrite(REQ* req) {
+void HttpSession::serverWrite(RES* res) {
     // 写入服务端之前的mock操作
 //    mockManager_.mockRequest(request);
 
     auto self(shared_from_this());
-    boost::beast::http::async_write(*serverSocket_, req->request, [this, self, req](const error_code& error, size_t length){
+    boost::beast::http::async_write(*serverSocket_, res->request, [this, self, res](const error_code& error, size_t length){
         if (!error){
-            serverRead(req);
+            serverRead(res);
             clientRead();
         }else {
-            delete req;
+            delete res;
         }
     });
 }

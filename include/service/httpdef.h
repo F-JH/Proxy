@@ -12,13 +12,19 @@ using namespace boost::beast::http;
 typedef boost::beast::http::request<boost::beast::http::string_body> REQUEST;
 typedef boost::beast::http::response<boost::beast::http::string_body> RESPONSE;
 
-typedef struct req_res {
+typedef struct response_ {
     REQUEST request;
     RESPONSE response;
     boost::beast::string_view url;
+} RES;
+
+typedef struct request_ {
+    REQUEST request;
+    boost::beast::string_view domain;
+    std::string port;
 } REQ;
 
-typedef std::function<void(REQUEST*)> OnRequest;
-typedef std::function<void(REQ*)> OnResponse;
+typedef std::function<void(REQ*)> OnRequest;
+typedef std::function<void(RES*)> OnResponse;
 
 #endif //PROXY_HTTPDEF_H

@@ -31,9 +31,9 @@ public:
 private:
     std::string getPassword() const;
     void clientRead();
-    void clientWrite(REQ* req);
-    void serverRead(REQ* req);
-    void serverWrite(REQ* req);
+    void clientWrite(RES* res);
+    void serverRead(RES* res);
+    void serverWrite(RES* res);
     void stopClient();
     void stopServer();
     void asioWrite(std::string res);

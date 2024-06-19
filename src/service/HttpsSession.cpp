@@ -9,6 +9,7 @@ HttpsSession::HttpsSession(boost::beast::ssl_stream<boost::beast::tcp_stream> cl
     serverReadCnt = 0;
     isServerStop = false;
     isFirstWriteServer = true;
+    isConnect = false;
     domain_= domain;
     port_ = port;
     serverSocket_.set_verify_mode(boost::asio::ssl::verify_none);
@@ -18,25 +19,30 @@ HttpsSession::HttpsSession(boost::beast::ssl_stream<boost::beast::tcp_stream> cl
 HttpsSession::~HttpsSession(){
 }
 
-void HttpsSession::connect() {
-    auto endpoints = resolver.resolve(domain_, "https"); // 这里是同步获取dns，考虑异步
+void HttpsSession::connect(RES* res) {
+    REQ req {res->request, domain_, port_};
+    mockManager_.mockRequest(&req);
+
+    auto endpoints = resolver.resolve(req.domain, req.port); // 这里是同步获取dns，考虑异步
     auto self(shared_from_this());
-    boost::beast::get_lowest_layer(serverSocket_).async_connect(endpoints, [this, self](const error_code& error, const tcp::endpoint& ep){
+    boost::beast::get_lowest_layer(serverSocket_).async_connect(endpoints, [this, self, res](const error_code& error, const tcp::endpoint& ep){
         if (error){
             std::cerr << "connect | " << error.what() << std::endl;
         }else {
-            handshakeWithServer();
+            handshakeWithServer(res);
         }
     });
 }
 
-void HttpsSession::handshakeWithServer() {
+void HttpsSession::handshakeWithServer(RES* res) {
     auto self(shared_from_this());
-    serverSocket_.async_handshake(boost::asio::ssl::stream_base::client, [this, self](const error_code &error){
+    serverSocket_.async_handshake(boost::asio::ssl::stream_base::client, [this, self, res](const error_code &error){
         if (error){
             std::cerr << "handshakeWithServer" << " | " << error.what() << std::endl;
         }else {
-            handshakeWithClient();
+            isConnect = true;
+            serverWrite(res);
+//            handshakeWithClient();
         }
     });
 }
@@ -55,12 +61,12 @@ void HttpsSession::handshakeWithClient() {
 void HttpsSession::clientRead() {
     auto self(shared_from_this());
     clientFlatBuffer_.clear();
-    REQ* req = new REQ;
-    req->request = {};
-    req->response = {};
-    boost::beast::http::async_read(clientSocket_, clientFlatBuffer_, req->request, [this, self, req](const error_code& error, size_t length){
+    RES* res = new RES;
+    res->request = {};
+    res->response = {};
+    boost::beast::http::async_read(clientSocket_, clientFlatBuffer_, res->request, [this, self, res](const error_code& error, size_t length){
         if (error){
-            delete req;
+            delete res;
             if (error == boost::asio::error::operation_aborted
                 || error == boost::asio::error::interrupted
                 || error == boost::asio::error::try_again
@@ -69,70 +75,72 @@ void HttpsSession::clientRead() {
             }else {
                 stopServer();
             }
+        }else if (!isConnect){
+            connect(res);
         }else {
-            std::string method = to_string(req->request.method());
-            url = handleUrl(domain_, port_, (std::string)req->request.target());
-            req->url = url;
+            std::string method = to_string(res->request.method());
+            url = handleUrl(domain_, port_, (std::string)res->request.target());
+            res->url = url;
             log(method.c_str(), url.c_str());
-            serverWrite(req);
+            serverWrite(res);
         }
     });
 }
 
-void HttpsSession::clientWrite(REQ* req) {
-    mockManager_.mockResponse(req);
+void HttpsSession::clientWrite(RES* res) {
+    mockManager_.mockResponse(res);
 
     auto self(shared_from_this());
-    boost::beast::http::async_write(clientSocket_, req->response, [this, self, req](const error_code& error, size_t length){
-        delete req;
+    boost::beast::http::async_write(clientSocket_, res->response, [this, self, res](const error_code& error, size_t length){
+        delete res;
         if (!error && serverReadCnt == 1 && isServerStop){
             stopClient();
         }
     });
 }
 
-void HttpsSession::serverRead(REQ* req) {
+void HttpsSession::serverRead(RES* res) {
     serverReadCnt++;
     auto self(shared_from_this());
     serverFlatBuffer_.clear();
-    boost::beast::http::async_read(serverSocket_, serverFlatBuffer_, req->response, [this, self, req](const error_code& error, size_t length){
+    boost::beast::http::async_read(serverSocket_, serverFlatBuffer_, res->response, [this, self, res](const error_code& error, size_t length){
         if (error){
             if (error == boost::asio::error::operation_aborted
                 || error == boost::asio::error::interrupted
                 || error == boost::asio::error::try_again
                 || error == boost::asio::error::would_block) {
-                req->response.clear();
-                req->response = {};
-                serverRead(req);
+                res->response.clear();
+                res->response = {};
+                serverRead(res);
             }else {
                 isServerStop = true;
                 if (length > 0){
-                    clientWrite(req);
+                    clientWrite(res);
                 }else if (serverReadCnt == 1){
                     // 无其他在处理中的clientWrite，直接关闭
-                    delete req;
+                    delete res;
                     stopClient();
                 }else {
-                    delete req;
+                    delete res;
                     serverReadCnt--;
                 }
             }
         }else {
-            clientWrite(req);
+            clientWrite(res);
         }
     });
 }
 
-void HttpsSession::serverWrite(REQ* req) {
-    mockManager_.mockRequest(req);
+void HttpsSession::serverWrite(RES* res) {
+//    mockManager_.mockRequest(req);
 
     auto self(shared_from_this());
-    boost::beast::http::async_write(serverSocket_,  req->request, [this, self, req](const error_code& error, size_t length){
+    boost::beast::http::async_write(serverSocket_,  res->request, [this, self, res](const error_code& error, size_t length){
         if (!error){
-            serverRead(req);
+            serverRead(res);
             clientRead();
         }else {
-            delete req;
+            delete res;
         }
     });
 }

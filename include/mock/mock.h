@@ -17,7 +17,7 @@ class HttpsSession;
 class MockInterface {
 public:
     virtual void onRequest(REQ* req);
-    virtual void onResponse(REQ* req);
+    virtual void onResponse(RES* res);
 };
 
 template<typename onrequest, typename onresponse>
@@ -46,16 +46,16 @@ private:
 
         for (auto func : onRequestFunc_){
             try{
-                func(&(req->request));
+                func(req);
             }catch (std::exception& e){
                 std::cerr << e.what() << std::endl;
             }
         }
     }
-    void mockResponse(REQ* req){
+    void mockResponse(RES* res){
         for (auto mock : mocks_){
             try{
-                mock.onResponse(req);
+                mock.onResponse(res);
             }catch (std::exception& e){
                 std::cerr << e.what() << std::endl;
             }
@@ -63,7 +63,7 @@ private:
 
         for (auto func : onResponseFunc_){
             try{
-                func(req);
+                func(res);
             }catch (std::exception& e){
                 std::cerr << e.what() << std::endl;
             }

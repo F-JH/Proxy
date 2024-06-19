@@ -4,7 +4,7 @@
 #include "mock/mock.h"
 
 void MockInterface::onRequest(REQ* req) {}
-void MockInterface::onResponse(REQ* req) {}
+void MockInterface::onResponse(RES* res) {}
 
 //void MockManager::addMock(MockInterface mock) {
 //    mocks_.push_back(mock);

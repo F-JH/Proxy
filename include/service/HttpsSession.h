@@ -29,16 +29,16 @@ class HttpsSession : public std::enable_shared_from_this<HttpsSession> {
 public:
     HttpsSession(boost::beast::ssl_stream<boost::beast::tcp_stream> clientSocket, io_context& ioContext, boost::asio::ssl::context context, MockManager<OnRequest, OnResponse>& mockManager, std::string domain, std::string port);
     ~HttpsSession();
-    void connect();
+    void handshakeWithClient();
 private:
     template<class Body, class Allocator>
     boost::beast::http::message_generator handle_request(http::request<Body, http::basic_fields<Allocator>>&& req);
-    void handshakeWithClient();
-    void handshakeWithServer();
+    void connect(RES* res);
+    void handshakeWithServer(RES* res);
     void clientRead();
-    void clientWrite(REQ* req);
-    void serverRead(REQ* req);
-    void serverWrite(REQ* req);
+    void clientWrite(RES* res);
+    void serverRead(RES* res);
+    void serverWrite(RES* res);
     bool verifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx);
     void stopClient();
     void stopServer();
@@ -55,6 +55,7 @@ private:
     int serverReadCnt;
     bool isFirstWriteServer;
     bool isServerStop;
+    bool isConnect;
 
     MockManager<OnRequest, OnResponse> mockManager_;
     std::string url;
